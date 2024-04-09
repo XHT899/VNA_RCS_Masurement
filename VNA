@@ -1,0 +1,112 @@
+import pyvisa
+#import time
+import numpy as np
+import matplotlib.pyplot as plt
+rm = pyvisa.ResourceManager()
+instruments = rm.list_resources()
+print(instruments)  # 打印所有连接的仪器VISA地址
+vna_address = 'TCPIP0::169.254.52.221::inst0::INSTR'  # 根据连接电脑以太网的ipv4地址设置矢网仪的IP地址
+vna = rm.open_resource(vna_address)
+vna.timeout = 10000             # 设置超时时间，单位ms 
+start_freq = 14e9             # 起始频率，单位为Hz
+stop_freq = 16e9              # 终止频率，单位为Hz
+points = 201                    # 扫描点数
+bandwidth= 1e3                  # 中频带宽
+#antenna gain_1=                # 端口1天线增益
+#antenna gain_2=                # 端口2天线增益
+idn = vna.query('*IDN?')        # 查询当前设备信息
+frequency = np.linspace(start_freq, stop_freq, points)
+frequency_resolution = frequency[1] - frequency[0]
+time_duration = 1 / frequency_resolution
+time = np.linspace(0, time_duration, points, endpoint=False)
+time *= 1e9
+
+
+#vna.write('CALC:NORM:INT ON ')      #设置内插模式打开
+vna.write('*RST')                               # 复位矢网仪
+vna.write(f'SENS:BWID {bandwidth}')             # 设置中频带宽
+vna.write(':SENSe1:SWEep:TYPE LIN')             # 设置扫描模式为线性扫描
+vna.write(f':SENS:FREQ:STAR {start_freq}')      # 设置起始频率
+vna.write(f':SENS:FREQ:STOP {stop_freq}')       # 设置终止频率
+vna.write(f':SENSe1:SWEep:POINts {points}')     # 设置扫描点数
+vna.write(':SENSe1:SWEep:TIME:AUTO  ON')        #将扫描时间设置为自动
+vna.write(':SOUR:POW  0dBm')                   #扫描功率电平设置为10dBm
+#vna.write('SENSe1:COUPle ALL')                  #设置同时扫描 NONE为交替扫描
+
+def setup_s_parameter(channel, parameter):
+    vna.write(f'DISP:WIND{channel}:STATE ON')  
+    vna.write(f'CALC:PAR:DEF "test{parameter}",{parameter}')
+    vna.write(f'DISP:WIND{channel}:TRAC{channel}:FEED "test{parameter}"')
+    vna.write('CALC:FUNC:STAT ON')          #打开激活窗口的轨迹统计
+    
+# 获取S参数数据
+def fetch_s_parameter_amplitude(channel):
+    vna.write(f'display:window{channel}:trace{channel}:select')#激活窗口1的轨迹
+    vna.write('CALC:FORM MLOG')      # 设置数据格式为对数格式
+    #vna.write(f'CALC{channel}:DATA? FDATA')  # 获取S参数的复数数据
+    
+    data = vna.query('CALC:DATA? FDATA')        #获取Ｓ参数的幅值，单位ｄＢ
+    
+    data=data.split(',')
+    data=[float(num) for num in data]
+    vna.write(f'CALCulate{channel}:TRANsform:TIME:STATe ON') 
+    vna.write(f'display:window{channel}:trace{channel}:y:scale:auto ')#把窗口的自动比例打开
+    return data
+def fetch_s_parameter_phase(channel):
+    vna.write(f'display:window{channel}:trace{channel}:select')#激活窗口1的轨迹
+    vna.write('CALC:FORM MLOG')      # 设置数据格式为对数格式
+    #vna.write(f'CALC{channel}:DATA? FDATA')  # 获取S参数的复数数据
+    
+    data_phase = vna.query('CALC:DATA? SDAT')        #获取Ｓ参数的实部与虚部
+    
+    data_phase=data_phase.split(',')
+    data_phase=[float(num) for num in data_phase]
+    return data_phase
+'''def fetch_s_parameter_phase(channel):
+    # 激活指定通道的轨迹
+    vna.write(f'display:window{channel}:trace{channel}:select')
+    # 设置数据格式为相位格式
+    vna.write('CALC:FORM PHAS')
+    # 获取指定通道的S参数相位数据
+    data_phase = vna.query(f'CALC{channel}:DATA? SDATA')  # 使用SDATA获取实部和虚部，或者FDATA获取格式化的数据
+    
+    data_phase = data_phase.split(',')
+    data_phase = [float(num) for num in data_phase]
+    return data_phase
+'''
+#setup_s_parameter(1, 'S11')
+setup_s_parameter(2, 'S21')
+#setup_s_parameter(3, 'S12')
+#setup_s_parameter(4, 'S22')
+
+# 设置各个S参数
+vna.write('INIT:IMM; *WAI')  # 开始扫描并等待扫描完成
+vna.write(' :INITiate:CONTinuous  OFF') 
+# 获取各个S参数的数据
+#s11_amplitude = fetch_s_parameter_amplitude(1)
+s21_amplitude = fetch_s_parameter_amplitude(2)
+#s12_amplitude = fetch_s_parameter_amplitude(3)
+#s22_amplitude = fetch_s_parameter_amplitude(4)
+s21_complex = fetch_s_parameter_phase(2)
+s21_real=s21_complex[0::2]
+s21_imaginary=s21_complex[1::2]
+complex_array = np.array(s21_real) + 1j * np.array(s21_imaginary)
+s21_amp=np.abs(complex_array)
+time_domain_signal = np.fft.ifft(complex_array)
+time_domain_signal_real = np.real(time_domain_signal)
+time_domain_signal_db=10*np.log10(time_domain_signal)
+time_domain_signal_db= time_domain_signal_db[:len(time[time <= 100])]  # 限制在100ns内
+
+# 绘制时域信号
+plt.figure(figsize=(10, 6))
+plt.plot(time[time <= 100], np.abs(time_domain_signal_db))
+plt.title('Time Domain Signal')
+plt.xlabel('Time (ns)')
+plt.ylabel('Amplitude')
+plt.grid(True)
+plt.show()
+vna.close()
+
+
+
+
