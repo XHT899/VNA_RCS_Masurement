@@ -24,7 +24,7 @@ def fetch_s_parameter_amplitude(channel):
     vna.write(f'CALCulate{channel}:TRANsform:TIME:STATe ON') 
     vna.write(f'display:window{channel}:trace{channel}:y:scale:auto ')#把窗口的自动比例打开
     return data
-def fetch_s_parameter_phase(channel):
+def fetch_s_parameter_complex (channel):
     vna.write(f'display:window{channel}:trace{channel}:select')#激活窗口1的轨迹
     vna.write('CALC:FORM MLOG')      # 设置数据格式为对数格式
     #vna.write(f'CALC{channel}:DATA? FDATA')  # 获取S参数的复数数据
@@ -47,7 +47,7 @@ vna.write(' :INITiate:CONTinuous  OFF')
 s21_amplitude = fetch_s_parameter_amplitude(2)
 #s12_amplitude = fetch_s_parameter_amplitude(3)
 #s22_amplitude = fetch_s_parameter_amplitude(4)
-s21_complex = fetch_s_parameter_phase(2)
+s21_complex = fetch_s_parameter_complex(2)
 s21_real=s21_complex[0::2]
 s21_imaginary=s21_complex[1::2]
 complex_array = np.array(s21_real) + 1j * np.array(s21_imaginary)
