@@ -48,6 +48,12 @@ s21_amplitude = fetch_s_parameter_amplitude(2)
 #s12_amplitude = fetch_s_parameter_amplitude(3)
 #s22_amplitude = fetch_s_parameter_amplitude(4)
 s21_complex = fetch_s_parameter_complex(2)
+with open('s21_amplitude.txt', 'w') as file:
+    for value in s21_amplitude:
+        file.write(f"{value}\n")
+with open('s21_complex.txt', 'w') as file:
+    for i in range(0, len(s21_complex), 2):  # 步长为2，因为数据是实部和虚部成对出现
+        file.write(f"{s21_complex[i]}, {s21_complex[i+1]}\n")
 s21_real=s21_complex[0::2]
 s21_imaginary=s21_complex[1::2]
 complex_array = np.array(s21_real) + 1j * np.array(s21_imaginary)
