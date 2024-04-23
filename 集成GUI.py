@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Apr 23 14:40:27 2024
+
+@author: Administrator
+"""
+
 import tkinter as tk
 from tkinter import messagebox
 import pyvisa
@@ -123,11 +130,11 @@ display_frame.pack(fill=tk.BOTH, expand=True)
 measure_button = tk.Button(display_frame, text="Measure S21", command=measure)
 measure_button.pack()
 
-amplitude_display = tk.Text(display_frame, height=10, width=50)
+amplitude_display = tk.Text(display_frame, height=25, width=100)
 amplitude_display.pack()
 amplitude_display.config(state=tk.DISABLED)
 
-complex_display = tk.Text(display_frame, height=10, width=50)
+complex_display = tk.Text(display_frame, height=25, width=100)
 complex_display.pack()
 complex_display.config(state=tk.DISABLED)
 
